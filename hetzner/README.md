@@ -14,6 +14,19 @@ Repository: [actools-pl/boa](https://github.com/actools-pl/boa) · branch: `hetz
 
 Outgoing TCP ports 25 and 465 may remain blocked by Hetzner. The installer chooses BOA's upstream `nodns` option to bypass **initial** mail/DNS checks; that does **not** enable outbound email or replace working public DNS. Configure an authenticated external SMTP provider over 587 after installing BOA.
 
+## Debian /etc/hosts versus public DNS
+
+A clean Debian 13 image may contain `127.0.1.1 server.example.com server` in `/etc/hosts` because cloud-init maintains the machine's local hostname. This is normal and **does not prove the public A record is incorrect**. The preflight explicitly queries the `dns` NSS service (`getent -s dns ahostsv4`) so the local hostname entry cannot shadow published DNS. **Do not modify /etc/hosts or cloud-init merely to satisfy this preflight.**
+
+To check published resolver answers without the local hosts entry, run:
+
+```bash
+getent -s dns ahostsv4 server.example.com | awk '{print $1}' | sort -u
+getent -s dns ahostsv4 boa-preflight-check.server.example.com | awk '{print $1}' | sort -u
+```
+
+Both must include the IPv4 actually assigned to the VPS. If the direct hostname's DNS answer is different, correct its **public DNS A record** at the domain provider; retain the working wildcard.
+
 ## Commands: prepare, install, verify
 
 Replace **every** example hostname/email/site domain with your real values. Run directly as root, on an empty snapshotted VM.
