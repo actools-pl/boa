@@ -22,6 +22,24 @@ for url in https://files.boa.io/versions/dev/boa/aegir/tools/bin/boa \
     echo "FAIL: unexpected source acceptance: $url" >&2; exit 1
   fi
 done
+# The source resolver copies pinned bytes and never damages an existing file
+# when a requested source is missing.
+_tmp="$(mktemp -d)"
+trap 'rm -rf "$_tmp"' EXIT
+boa_fork_stage_file https://files.boa.io/versions/lts/boa/aegir/tools/bin/boa "$_tmp/boa"
+cmp -s "$_tmp/boa" "$repo/aegir/tools/bin/boa"
+printf 'original' > "$_tmp/guard"
+if boa_fork_stage_file https://files.boa.io/versions/lts/boa/no-such-file "$_tmp/guard" 2>/dev/null; then
+  echo 'FAIL: unexpectedly accepted missing pinned file' >&2; exit 1
+fi
+[[ "$(cat "$_tmp/guard")" = original ]]
+# Every pinned code tree must have these archive sentinels.
+mkdir "$_tmp/export"
+(set -o pipefail; git -C "$repo" archive HEAD | tar -xf - -C "$_tmp/export")
+for file in lib/functions/helper.sh.inc aegir/helpers/apt.conf.noi.nrml \
+  aegir/helpers/apt.conf.noi.dist hetzner/fork-source.sh; do
+  test -s "$_tmp/export/$file"
+done
 for file in aegir/tools/bin/boa aegir/tools/bin/barracuda aegir/tools/bin/octopus; do
   grep -q 'boa_fork_stage_file' "$repo/$file"
 done
