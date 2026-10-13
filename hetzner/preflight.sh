@@ -97,19 +97,31 @@ else
   fail "IPv4 default route missing or ip command unavailable"
 fi
 
+# BOA requires wildcard A records pointing directly to this VM. A mere DNS
+# answer is insufficient (127.0.1.1 via /etc/hosts, or a proxy elsewhere).
+public_ips=""
+if command -v ip >/dev/null 2>&1; then
+  public_ips="$(ip -o -4 addr show scope global 2>/dev/null |
+    awk '{sub(/\/.*/, "", $4); print $4}' | sort -u)"
+fi
+if [[ -z "$public_ips" ]]; then
+  fail "no public/global IPv4 address detected on this VM"
+fi
 if command -v getent >/dev/null 2>&1; then
-  if getent ahostsv4 "$fqdn" >/dev/null 2>&1; then
-    ok "FQDN has an IPv4 DNS answer"
-  else
-    fail "FQDN does not resolve to IPv4"
-  fi
-  if getent ahostsv4 "boa-preflight-check.$fqdn" >/dev/null 2>&1; then
-    ok "a subdomain resolves (candidate wildcard DNS)"
-  else
-    warn "wildcard DNS not verified; BOA uses wildcard-enabled DNS for hosting"
-  fi
+  for name in "$fqdn" "boa-preflight-check.$fqdn"; do
+    resolved="$(getent ahostsv4 "$name" 2>/dev/null | awk '{print $1}' | sort -u)"
+    if [[ -z "$resolved" ]]; then
+      fail "$name has no IPv4 DNS answer"
+    elif [[ -z "$public_ips" ]]; then
+      fail "$name DNS cannot be matched to server IPv4"
+    elif comm -12 <(printf '%s\n' "$public_ips") <(printf '%s\n' "$resolved") | grep -q .; then
+      ok "$name resolves to an IPv4 address assigned to this VM"
+    else
+      fail "$name resolves to a different IPv4 address (wildcard/direct A required)"
+    fi
+  done
 else
-  fail "getent unavailable; cannot verify DNS"
+  fail "getent unavailable; cannot verify A records"
 fi
 
 if [[ -f /proc/sys/net/ipv6/conf/all/disable_ipv6 ]] \
@@ -133,6 +145,12 @@ if command -v df >/dev/null 2>&1; then
   else
     warn "could not determine filesystem free space"
   fi
+fi
+
+if command -v git >/dev/null 2>&1; then
+  ok "Git is available for pinned-fork staging"
+else
+  fail "Git is required before pin preparation. On a disposable VM only, install it explicitly after taking a snapshot."
 fi
 
 if command -v wget >/dev/null 2>&1; then
