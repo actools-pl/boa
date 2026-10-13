@@ -2,6 +2,7 @@
 set -euo pipefail
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 for f in hetzner/fork-source.sh hetzner/bootstrap.sh hetzner/preflight.sh \
+  hetzner/tests/pin-integration-test.sh \
   BOA.sh.txt BARRACUDA.sh.txt OCTOPUS.sh.txt \
   aegir/tools/bin/boa aegir/tools/bin/barracuda aegir/tools/bin/octopus \
   aegir/tools/bin/autoupboa aegir/tools/system/clear.sh \

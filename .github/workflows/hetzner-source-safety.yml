@@ -17,6 +17,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Shell source mapping and entrypoint checks
         run: bash hetzner/tests/fork-source-test.sh
+      - name: Root-only fork staging and drift tests on ephemeral CI runner
+        run: sudo -E bash hetzner/tests/pin-integration-test.sh
       - name: Confirm LTS and default trees are unchanged by this test
         run: |
           test -f BOA.sh.txt
