@@ -56,7 +56,7 @@ fi
 [[ "$(cat "$_tmp/guard")" = original ]]
 # Every pinned code tree must have these archive sentinels.
 mkdir "$_tmp/export"
-(set -o pipefail; git -C "$repo" archive HEAD | tar -xf - -C "$_tmp/export")
+(set -o pipefail; git -c safe.directory="$repo" -C "$repo" archive HEAD | tar -xf - -C "$_tmp/export")
 for file in lib/functions/helper.sh.inc aegir/helpers/apt.conf.noi.nrml \
   aegir/helpers/apt.conf.noi.dist hetzner/fork-source.sh; do
   test -s "$_tmp/export/$file"
