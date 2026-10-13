@@ -2,7 +2,7 @@
 
 **Version:** 2026-10-13 · **Repository:** https://github.com/actools-pl/boa · **Working branch:** `hetzner-drupal11` · **Base:** upstream free `5.x-lts`
 
-> **STATUS: DESIGN / INSTALLATION HANDOVER — NOT INSTALL-READY.** The fork exists and the `hetzner-drupal11` branch contains `hetzner/preflight.sh` and `hetzner/README.md`. As of this note, no fork-aware bootstrap or update patches have been implemented, and no end-to-end installation on Hetzner has been demonstrated. Merely cloning the branch or executing its unmodified `BOA.sh.txt` **does not ensure the fork's code is installed**. Do not use it for production yet.
+> **STATUS: PINNED FORK SOURCE IMPLEMENTED; LIVE INSTALL NOT VERIFIED.** This branch now has a root-owned SHA pinning bootstrap, fork-aware BOA/Barracuda/Octopus source and update paths, and passing GitHub Actions shell/source-safety checks. No end-to-end Hetzner Debian-to-Devuan, Drupal 11, SMTP delivery or reboot test has been performed. **Disposable server testing only; not approved for production.**
 
 ## 1. Objective and minimal-change principle
 
@@ -72,7 +72,7 @@ bash /root/boa-hetzner-preflight.sh server.example.com smtp.example.net
 
 The preflight does not install BOA, configure SMTP, change firewall/networking, or convert Debian. A `PASS` result is necessary but not sufficient. It cannot verify that the Hetzner kernel/network survives the Debian-to-Devuan transition.
 
-**STOP after preflight today.** There is **no verified install command that loads and retains this fork's modified sources yet**. Do not infer that `bash BOA.sh.txt` from a clone installs the GitHub branch; its code still contains mirror-based fetches.
+**Source selection is now implemented**, but a Hetzner runtime test is still required. Use `hetzner/bootstrap.sh --prepare` to pin the source before running the local BOA meta-installer. Downloading the official BOA installer directly from `files.boa.io` is a **different, upstream** installation and does not exercise our fork.
 
 ## 4. Reference: how standard upstream BOA is installed (NOT a fork install)
 
@@ -115,11 +115,11 @@ test -f /data/disk/o1/log/setupmail.txt && echo "Welcome information exists (sen
 
 If a run aborts during conversion, inspect `/root/.autoinit.log` and `/root/.autoinit-verbose.log`; if a BOA phase aborts, inspect corresponding Barracuda/Octopus logs. Do not rerun destructive recovery steps blindly. If networking or boot fails, use the pre-conversion Hetzner Snapshot / Rescue System.
 
-## 5. Exactly what must be changed in actools-pl/boa
+## 5. Fork modifications implemented and requirements remaining
 
 ### P0 — a fork-aware, persistent BOA source identity (mandatory)
 
-Implement a **root-owned, persistent source manifest**, for example `/root/.boa-source.conf` (mode 0600), with explicit **BOA repository** `https://github.com/actools-pl/boa.git`, source branch `hetzner-drupal11` and **pinned tested commit SHA**. This is a *design proposal*, **not an existing upstream file or implemented option**.
+**Implemented but not Hetzner-tested:** `hetzner/bootstrap.sh --prepare` checks out the source into `/opt/boa-fork/source` and records its exact 40-character commit SHA in `/root/.boa-fork-source.sha`, root-owned and mode 0600. BOA entrypoints verify the SHA, repository origin and checkout cleanliness before modifying the host. The pinned source remains fixed until a separately reviewed promotion procedure updates it.
 
 A fork bootstrap must use that manifest consistently across:
 1. Initial `BOA.sh.txt` setup (including the Debian `autoinit` restart/resume sequence).
@@ -187,29 +187,38 @@ su -s /bin/bash o1 -c 'touch ~/static/control/run-upgrade.pid'
 
 **Important upstream qualification:** built-in Drupal 8+ platform builds are intended for demonstration/compatibility testing with best-effort security updates. For a **production** Drupal 11 website, build and maintain your **own Composer-managed platform under the tenant's `~/static`**, following BOA's “Adding your own platform” guidance, rather than relying on built-in testing platforms.
 
-## 6. Planned fork installation flow (after P0 is implemented and reviewed)
+## 6. Fork-aware trial installation (DISPOSABLE HETZNER VM ONLY)
 
-The following is an **interface proposal, not an available command**:
+The bootstrap and fork loader are now implemented and have passed static CI checks, **not a live VPS installation**. Only on a fresh snapshotted Debian 13 amd64 Hetzner Cloud server, with verified SSH key, Hetzner Rescue Console, valid DNS and all prerequisites, run as root:
 
-~~~text
-# NOT IMPLEMENTED — do not execute:
-# hetzner/install.sh --fqdn server.example.com --email client@example.com
+~~~bash
+# Git must already be available on the disposable VM.
+git clone --branch hetzner-drupal11 --single-branch https://github.com/actools-pl/boa.git
+cd boa
+bash hetzner/preflight.sh server.example.com
+# Resolve all FAILs and verify your provider Snapshot/Rescue.
+bash hetzner/bootstrap.sh --prepare
+cat /root/.boa-fork-source.sha
+screen
+bash /opt/boa-fork/source/BOA.sh.txt
+boa help
+boa in-lts public server.example.com client@example.com o1 nodns
 ~~~
 
-That script should:
-1. Verify `root`, Debian 13 x86-64, correct FQDN and wildcard DNS, SSH key, root console access, free resources, IPv4/boot/network expectations and a recorded snapshot.
-2. Verify the signed/hashed/pinned **actools-pl/boa source SHA**; create persistent fork source config and a root-only log without secrets.
-3. Launch BOA's existing `in-lts public ... o1 nodns` path with an installer chain that always fetches its BOA components from the **pinned fork**. Let BOA's `autoinit` and its automatic reboots run without manually intervening.
-4. Verify source identity again after `autoinit` and at each installer phase; refuse source drift.
-5. Wait for BOA's normal three-pass completion gate before the final manual `boa reboot`.
-6. Validate network, SSH, Nginx, database 8.4, PHP, Ægir/Octopus and an installed Drupal 11 site; verify the selected fork survives a manual upgrade and scheduled updater pass.
-7. Configure SMTP AUTH 587 separately using locally supplied credentials and verify delivery.
-8. Save a **redacted** test report and exit nonzero if any required step is not proven.
+The `bootstrap.sh` procedure stages the pin and **does not install BOA**; the subsequent local `BOA.sh.txt` loads the fork's pinned scripts. **Do not run this on production** or use example domains/emails literally. Installation may reboot automatically during `autoinit`. Do not issue a separate reboot before all BOA phases finish. Port 25 bypass is limited to initial checks: SMTP AUTH/TLS on 587 remains a separate task.
 
-**Never turn this into an unattended “one-liner” before the conversion/rollback test passes.**
+The completed code modifications are intended to:
+1. Verify a root-owned, clean, commit-pinned checkout of `actools-pl/boa` and refuse source drift.
+2. Load the BOA code tree from that pin, leaving external package and Ægir dependency downloads upstream.
+3. Use pinned code for BOA wrappers, installer settings, static tools and the scheduled `clear.sh` self-update.
+4. Refuse missing/unsafe fork files instead of silently falling back to the official BOA code.
+5. Preserve the original BOA free-LTS branch semantics and existing Drupal 11/Percona 8.4 implementation.
+
+**Not yet implemented or demonstrated:** an operator-safe repin/rollback workflow, successful Devuan conversion on Hetzner, an actual Drupal 11 installation, SMTP delivery, and backup/restore validation. Never edit the pin file in place while BOA is running.
 
 ## 7. Acceptance tests / definition of done
 
+- [x] Pinned BOA code-source hooks and static GitHub Actions source-safety tests implemented.
 - [ ] `hetzner/preflight.sh` succeeds on an actual clean Hetzner **Debian 13 amd64** VM; snapshot and recovery access confirmed.
 - [ ] Vendor-control install (separate disposable VM) establishes what works with no fork patches.
 - [ ] Debian -> Devuan Excalibur conversion completes, with root SSH, IPv4, DNS and boot surviving its reboots.
@@ -249,4 +258,4 @@ That script should:
 - Hetzner network configuration: https://docs.hetzner.com/networking/networks/server-configuration/
 - Hetzner Snapshots: https://docs.hetzner.com/cloud/servers/backups-snapshots/overview/
 
-**Final position:** It is feasible to pursue a **small BOA fork diff**, but a truly fork-based installation is **not yet executable**. The hard requirement is source selection that survives installers, Debian conversion, upgrades and scheduled self-updates; test that before advertising a Hetzner installation command.
+**Final position:** A pinned fork-aware **test candidate** is committed and the static GitHub workflow passes. A disposable Hetzner installation is still required to demonstrate it actually works, survives conversion/reboots and updates, and reliably hosts Drupal 11. Production use is **not approved**.
