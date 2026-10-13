@@ -121,35 +121,35 @@ If a run aborts during conversion, inspect `/root/.autoinit.log` and `/root/.aut
 
 **Implemented but not Hetzner-tested:** `hetzner/bootstrap.sh --prepare` checks out the source into `/opt/boa-fork/source` and records its exact 40-character commit SHA in `/root/.boa-fork-source.sha`, root-owned and mode 0600. BOA entrypoints verify the SHA, repository origin and checkout cleanliness before modifying the host. The pinned source remains fixed until a separately reviewed promotion procedure updates it.
 
-A fork bootstrap must use that manifest consistently across:
+The fork loader is now wired into these paths; each still requires a live test on Hetzner:
 1. Initial `BOA.sh.txt` setup (including the Debian `autoinit` restart/resume sequence).
 2. Barracuda/Octopus installer and settings fetches.
 3. Source-tree staging in both Barracuda and Octopus phases.
 4. Scheduled launcher/tool refreshes and manual `up-lts` upgrades.
 5. Post-reboot operation and recovery.
 
-Use an explicit **source identity** such as `BOA_SOURCE=fork`, separate from the **edition** `_tRee=lts`. Do not change edition to `dev` merely because our working Git branch has a custom name. On any missing source, missing ref, invalid archive/hash or unexpected upstream provenance, **fail closed** with a helpful error instead of silently replacing fork code with the official mirror release.
+The implementation uses **`BOA_FORK_MODE=YES`** as source identity, separate from the free-LTS **edition** `_tRee=lts`. Do not change edition to `dev` merely because our working Git branch has a custom name. On any missing source, missing ref, invalid archive/hash or unexpected upstream provenance, **fail closed** with a helpful error instead of silently replacing fork code with the official mirror release.
 
 Prefer *pinning immutable Git commit SHAs for a test deployment* and promoting deliberately tested commits. Branch names alone can move between checks. Preserve HTTPS verification; do not execute unverified downloaded bytes or hardcode credentials.
 
 ### P0 — patch only the BOA loader/updater chain
 
-Specific files/functions to inspect and patch narrowly:
+The patched files and outstanding verification points are:
 
-| File / component | Why it needs inspection or change |
+| File / component | Implemented change / remaining verification |
 | --- | --- |
 | `BOA.sh.txt` | Initial meta-bootstrap and `_update_boa_tools`/`_update_agents` fetch mirror-provided files. Must load/persist fork source across `autoinit` and update checks. |
 | `aegir/tools/bin/boa` | Computes `_bRnh=5.x-lts` and `_rgUrl=https://files.boa.io/versions/lts/boa`, then fetches Barracuda/Octopus scripts and settings. Add fork-aware source resolution. |
 | `aegir/tools/bin/barracuda` and `aegir/tools/bin/octopus` | On manual upgrades, select vendor `_rgUrl`, compare release stamps and refresh scripts. Must be consistent with the fork. |
 | `BARRACUDA.sh.txt` and `OCTOPUS.sh.txt` | Entry scripts set GitHub defaults and source the settings/build tree. Maintain LTS semantics and dispatch selected BOA source. |
 | `lib/settings/barracuda.sh.cnf` and `lib/settings/octopus.sh.cnf` | The `_download_helpers_libs` path defaults to `_DL_MODE=BATCH`; Git clone uses `_BRANCH_BOA` / `_BOA_REPO_GIT_URL`. Provide separate fork BOA-code selector and checksum/commit checks. |
-| `lib/functions/dns.sh.inc::_check_git_repos` | In GIT mode it resets `_BOA_REPO_GIT_URL` to omega8cc GitHub/GitLab. Must not overwrite an approved fork override. |
+| `lib/functions/dns.sh.inc::_check_git_repos` | Not modified: its GIT mirror detection is bypassed for pinned BOA code by the fork staging path; verify that future changes cannot override the pin. |
 | `aegir/tools/system/clear.sh`; `autoupboa`; cron/update paths | Scheduled self-updates fetch vendor `BOA.sh.txt` and launchers from mirrors, **even while several normal update options are off**. Must preserve fork source or stop safely. |
 | `hetzner/` (new files) | Add a small reviewed installer/bootstrap wrapper, source-identity audit, and Hetzner network smoke tests. |
 
 **Do not simply replace every occurrence of `files.boa.io` with `raw.githubusercontent.com`.** Vendor paths such as `versions/lts/boa/...` and `dev/lts/boa.tar.gz` do not match GitHub repository paths. The mirror also supplies packages and third-party artefacts we should continue consuming from its signed/verified upstream release surface.
 
-**Prefer a distinct “BOA code from this fork” path while retaining `_DL_MODE=BATCH` for upstream Ægir packages.** Changing `_DL_MODE=GIT` globally also switches Hostmaster/Provision/Hosting staging to live omega8cc Git clones; it does **not** by itself select our GitHub branch. It may enlarge the patch unnecessarily.
+**Implemented: the separate pinned “BOA code from this fork” path retains `_DL_MODE=BATCH` for upstream Ægir packages.** Changing `_DL_MODE=GIT` globally also switches Hostmaster/Provision/Hosting staging to live omega8cc Git clones; it does **not** by itself select our GitHub branch. It may enlarge the patch unnecessarily.
 
 ### P0 — Hetzner conversion/boot checks (test before invasive patches)
 
