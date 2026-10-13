@@ -97,8 +97,16 @@ else
   fail "IPv4 default route missing or ip command unavailable"
 fi
 
-# BOA requires wildcard A records pointing directly to this VM. A mere DNS
-# answer is insufficient (127.0.1.1 via /etc/hosts, or a proxy elsewhere).
+# BOA requires public A records for the FQDN and wildcard. Ordinary
+# "getent ahostsv4" queries NSS and can return Debian's NORMAL local entry:
+# /etc/hosts: 127.0.1.1 <FQDN> <shortname> (often written by cloud-init).
+# Force the "dns" NSS service: no /etc/hosts shadowing, no host modification.
+dns_a_records() {
+  local _name="$1"
+  getent -s dns ahostsv4 "$_name" 2>/dev/null |
+    awk '{print $1}' | sort -u
+}
+
 public_ips=""
 if command -v ip >/dev/null 2>&1; then
   public_ips="$(ip -o -4 addr show scope global 2>/dev/null |
@@ -109,15 +117,15 @@ if [[ -z "$public_ips" ]]; then
 fi
 if command -v getent >/dev/null 2>&1; then
   for name in "$fqdn" "boa-preflight-check.$fqdn"; do
-    resolved="$(getent ahostsv4 "$name" 2>/dev/null | awk '{print $1}' | sort -u)"
+    resolved="$(dns_a_records "$name")"
     if [[ -z "$resolved" ]]; then
-      fail "$name has no IPv4 DNS answer"
+      fail "$name has no IPv4 answer from DNS-only lookup (check public A record and resolver)"
     elif [[ -z "$public_ips" ]]; then
       fail "$name DNS cannot be matched to server IPv4"
     elif comm -12 <(printf '%s\n' "$public_ips") <(printf '%s\n' "$resolved") | grep -q .; then
-      ok "$name resolves to an IPv4 address assigned to this VM"
+      ok "$name DNS A record resolves to an IPv4 address assigned to this VM"
     else
-      fail "$name resolves to a different IPv4 address (wildcard/direct A required)"
+      fail "$name DNS A record does not match the VPS IPv4 (check A record; do not edit /etc/hosts)"
     fi
   done
 else
