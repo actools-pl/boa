@@ -135,4 +135,8 @@ fi
 echo
 printf 'Result: %s failure(s), %s warning(s)\n' "$fails" "$warns"
 if (( fails > 0 )); then exit 1; fi
+if [[ -z "$site_alias" ]]; then
+  echo "INCOMPLETE: BOA stack checks passed, but no Drupal 11 site was verified."
+  exit 2
+fi
 exit 0
