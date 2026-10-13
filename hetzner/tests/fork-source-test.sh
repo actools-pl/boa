@@ -2,7 +2,7 @@
 set -euo pipefail
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 for f in hetzner/fork-source.sh hetzner/bootstrap.sh hetzner/preflight.sh \
-  hetzner/tests/pin-integration-test.sh hetzner/install.sh \
+  hetzner/tests/pin-integration-test.sh hetzner/tests/preflight-dns-test.sh hetzner/install.sh \
   hetzner/verify-install.sh \
   BOA.sh.txt BARRACUDA.sh.txt OCTOPUS.sh.txt \
   aegir/tools/bin/boa aegir/tools/bin/barracuda aegir/tools/bin/octopus \
@@ -10,6 +10,7 @@ for f in hetzner/fork-source.sh hetzner/bootstrap.sh hetzner/preflight.sh \
   lib/settings/barracuda.sh.cnf lib/settings/octopus.sh.cnf; do
   bash -n "$repo/$f"
 done
+bash "$repo/hetzner/tests/preflight-dns-test.sh"
 bash "$repo/hetzner/install.sh" help >/dev/null
 bash "$repo/hetzner/verify-install.sh" help >/dev/null
 # Pure URL resolver tests. Production init always overrides this test variable.
