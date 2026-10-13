@@ -91,6 +91,10 @@ boa_fork_stage_tree() {
     || ! -s "$_tmp/aegir/helpers/apt.conf.noi.dist" ]]; then
     rm -rf -- "$_tmp"; boa_fork_error "staged tree fails sentinels"; return 1
   fi
+  # mktemp defaults to 0700. BOA runs some builders as unprivileged
+  # accounts, so only the PRIVATE Git checkout stays 0700; this staged tree
+  # must be traversable, as it is in upstream's tarball/Git staging.
+  chmod 0755 -- "$_tmp" || { rm -rf -- "$_tmp"; return 1; }
   _old="${_dst}.previous.$"
   [[ ! -e "$_old" && ! -L "$_old" ]] \
     || { rm -rf -- "$_tmp"; boa_fork_error "old staging backup already exists"; return 1; }
