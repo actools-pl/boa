@@ -91,7 +91,9 @@ boa_fork_stage_tree() {
     || ! -s "$_tmp/aegir/helpers/apt.conf.noi.dist" ]]; then
     rm -rf -- "$_tmp"; boa_fork_error "staged tree fails sentinels"; return 1
   fi
-  _old="${_dst}.previous.$$"
+  _old="${_dst}.previous.$"
+  [[ ! -e "$_old" && ! -L "$_old" ]] \
+    || { rm -rf -- "$_tmp"; boa_fork_error "old staging backup already exists"; return 1; }
   if [[ -e "$_dst" ]]; then
     mv -- "$_dst" "$_old" || { rm -rf -- "$_tmp"; return 1; }
   fi
