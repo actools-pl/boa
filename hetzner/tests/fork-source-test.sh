@@ -22,6 +22,23 @@ for url in https://files.boa.io/versions/dev/boa/aegir/tools/bin/boa \
     echo "FAIL: unexpected source acceptance: $url" >&2; exit 1
   fi
 done
+# Validate every static BOA versioned file, not just the main launchers.
+python3 - "$repo" <<'PY'
+import pathlib, re, sys
+root = pathlib.Path(sys.argv[1])
+content = (root / "BOA.sh.txt").read_text()
+matches = re.findall(r'_fetch_versioned[^\n]*"\${_urlHmr}/([^"]+)"', content)
+assert matches, "No versioned source paths found"
+dynamic, missing = [], []
+for path in matches:
+    path = path.replace("${_tBn}", "tools/bin")
+    if "${" in path:
+        dynamic.append(path)
+    elif not (root / "aegir" / path).is_file():
+        missing.append(path)
+assert not missing, "BOA files absent from pinned repo: " + ", ".join(missing)
+print(f"PASS: {len(matches)-len(dynamic)} BOA LTS code paths present; {len(dynamic)} dynamic paths need runtime checks")
+PY
 # The source resolver copies pinned bytes and never damages an existing file
 # when a requested source is missing.
 _tmp="$(mktemp -d)"
