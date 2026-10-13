@@ -95,7 +95,7 @@ boa_fork_stage_tree() {
   # accounts, so only the PRIVATE Git checkout stays 0700; this staged tree
   # must be traversable, as it is in upstream's tarball/Git staging.
   chmod 0755 -- "$_tmp" || { rm -rf -- "$_tmp"; return 1; }
-  _old="${_dst}.previous.$"
+  _old="${_dst}.previous.${BASHPID}"
   [[ ! -e "$_old" && ! -L "$_old" ]] \
     || { rm -rf -- "$_tmp"; boa_fork_error "old staging backup already exists"; return 1; }
   if [[ -e "$_dst" ]]; then
