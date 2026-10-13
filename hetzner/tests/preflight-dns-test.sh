@@ -34,7 +34,9 @@ got="$(dns_a_records boa-preflight-check.server.aarinct.com)"
 [[ "$got" = 116.203.241.156 ]] || {
   echo "FAIL: wildcard DNS resolver used /etc/hosts shadow: $got"; exit 1;
 }
-got="$(dns_a_records unknown.example.invalid)"
+# An NXDOMAIN is expected to yield no output and may return nonzero from
+# glibc getent; that failure must not abort this negative assertion.
+got="$(dns_a_records unknown.example.invalid || true)"
 [[ -z "$got" ]] || {
   echo "FAIL: missing DNS name returned a local hosts result: $got"; exit 1;
 }
