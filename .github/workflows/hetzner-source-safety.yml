@@ -1,0 +1,23 @@
+name: Hetzner BOA fork source safety
+on:
+  push:
+    branches:
+      - hetzner-drupal11
+  pull_request:
+    branches:
+      - hetzner-drupal11
+permissions:
+  contents: read
+jobs:
+  source-safety:
+    name: Fork pin and shell syntax
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell source mapping and entrypoint checks
+        run: bash hetzner/tests/fork-source-test.sh
+      - name: Confirm LTS and default trees are unchanged by this test
+        run: |
+          test -f BOA.sh.txt
+          test -f hetzner/INSTALL_FROM_FORK.md
