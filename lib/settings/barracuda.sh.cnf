@@ -2237,7 +2237,9 @@ _download_helpers_libs() {
   fi
   _find_fast_mirror_cnf
   _verify_boa_keys
-  if [ "${_DL_MODE}" = "BATCH" ]; then
+  if [ "${BOA_FORK_MODE:-NO}" = YES ]; then
+    boa_fork_stage_tree "${_bldPth}" || _clean_pid_exit _fork_staging_failed
+  elif [ "${_DL_MODE}" = "BATCH" ]; then
     _download_boa_code
   elif [ "${_DL_MODE}" = "GIT" ]; then
     _isGit="$(which git)"

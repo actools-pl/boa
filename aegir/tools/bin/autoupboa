@@ -1,5 +1,16 @@
 #!/bin/bash
 
+# Opt-in, pinned BOA fork source; upstream installs are unchanged.
+if [ -e /root/.boa-fork-source.sha ] || [ -L /root/.boa-fork-source.sha ]; then
+  if [ ! -r /opt/boa-fork/source/hetzner/fork-source.sh ]; then
+    echo "BOA FORK REFUSED: pinned helper missing (no upstream fallback)" >&2
+    exit 76
+  fi
+  # shellcheck disable=SC1091
+  . /opt/boa-fork/source/hetzner/fork-source.sh
+  boa_fork_init || exit 76
+fi
+
 export HOME=/root
 export SHELL=/bin/bash
 export PATH=/usr/local/bin:/usr/local/sbin:/opt/local/bin:/usr/bin:/usr/sbin:/bin:/sbin:/usr/libexec

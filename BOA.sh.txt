@@ -1,5 +1,16 @@
 #!/bin/bash
 
+# Opt-in, pinned BOA fork source; upstream installs are unchanged.
+if [ -e /root/.boa-fork-source.sha ] || [ -L /root/.boa-fork-source.sha ]; then
+  if [ ! -r /opt/boa-fork/source/hetzner/fork-source.sh ]; then
+    echo "BOA FORK REFUSED: pinned helper missing (no upstream fallback)" >&2
+    exit 76
+  fi
+  # shellcheck disable=SC1091
+  . /opt/boa-fork/source/hetzner/fork-source.sh
+  boa_fork_init || exit 76
+fi
+
 
 ###----------------------------------------###
 ###
@@ -1673,8 +1684,15 @@ _fetch_versioned() {
   # /var/www/static/getboa marks a box that carries the tree (every mirror has it,
   # publisher or passive). A URL that is not ours, or a tree this box does not hold,
   # simply has no local file and falls through to curl.
-  local _lcl=""
-  if [[ -e "/var/www/static/getboa" ]]; then
+  local _lcl="" _fork_path_rc=2
+  if [[ "${BOA_FORK_MODE:-NO}" = YES ]]; then
+    _lcl="$(boa_fork_path_for_url "${_url}")" && _fork_path_rc=0 || _fork_path_rc=$?
+    if [[ "${_fork_path_rc}" = 1 ]]; then
+      echo "BOA FORK REFUSED: missing/unsafe pinned code for ${_url}" >&2
+      exit 76
+    fi
+  fi
+  if [[ -z "${_lcl}" && -e "/var/www/static/getboa" ]]; then
     _lcl="${_url#*://}"
     _lcl="/var/www/static/${_lcl#*/}"
     [[ -s "${_lcl}" ]] || _lcl=""
