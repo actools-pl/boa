@@ -1,12 +1,12 @@
 # Hetzner Cloud / Drupal 11: compatibility track
 
-**Status: PREPARATION ONLY — no Hetzner end-to-end BOA installation has been verified.**
+**Status: FORK-AWARE SOURCE PINNING IMPLEMENTED; Hetzner end-to-end installation not yet tested.**
 
 This branch starts from BOA's free `5.x-lts` source. Its purpose is to make a **minimal, reviewable** change set for one Hetzner Cloud KVM VPS, installing BOA and then Drupal 11. The original `5.x-lts` and `5.x-dev` branches must remain unchanged. Do not use this branch for a production installation until the acceptance tests below pass on a disposable server.
 
 ## Detailed fork installation and required code changes
 
-Read **[INSTALL_FROM_FORK.md](INSTALL_FROM_FORK.md)** first. It is the current, comprehensive step-by-step Hetzner Cloud / Drupal 11 runbook and file-by-file modification plan. The installation from this fork is **not yet implemented or end-to-end tested**; the existing `preflight.sh` is only a read-only prerequisite check.
+Read **[INSTALL_FROM_FORK.md](INSTALL_FROM_FORK.md)** before testing. It now contains a disposable-server install procedure based on `bootstrap.sh --prepare`, source pinning, original BOA component paths, and exact unverified acceptance criteria.
 
 ## Supported test target
 
@@ -41,23 +41,39 @@ This checker makes **no changes** to the server. It checks prerequisites but **c
    `su -s /bin/bash o1 -c "drush @hm uli"`
 6. Do **not** reboot during BOA's chained installation or unfinished post-install updates. Follow the upstream completion check (`boa info | grep -c Percona` should report **3** lines) before the final reboot.
 
-## Fork versus upstream downloads: unresolved until implemented
+## Fork-aware source and update paths: implemented, awaiting live test
 
-**Cloning this GitHub branch does not automatically install its code.** The ordinary bootstrap launcher downloads BOA components from `files.boa.io`, and upgrades refresh launchers and code. Upstream has a `_DL_MODE=GIT` option using `_BOA_REPO_GIT_URL`, but its branch selection and some launcher/config downloads still use the official release path.
+**Cloning this branch alone does not select it as BOA's installation source.** First run `hetzner/bootstrap.sh --prepare` to create a verified root-owned pin; then run `/opt/boa-fork/source/BOA.sh.txt`. This is a **test candidate** and has not been verified on Hetzner.
 
-A future narrowly scoped patch must:
+The implemented source-selection changes must now be verified to:
 
 - Select `https://github.com/actools-pl/boa.git` at branch `hetzner-drupal11` for the BOA source tree, **without** diverting Debian/Devuan package archives or third-party dependencies.
 - Make fork selection explicit, testable, and fail-closed (no silent fall-back to a different BOA tree).
 - Ensure the initial installer, Barracuda upgrades, Octopus upgrades, and automatic refreshes don't overwrite Hetzner patches.
 - Keep tracking upstream `5.x-lts` changes in reviewable commits, with shell syntax checks and a disposable-VPS installation test.
 
-**Until the fork bootstrap and update path is demonstrated, do not describe this as an independently installable fork.** The official BOA command below is a *reference for later testing*, not an instruction to install this fork:
+**Static tests have passed, but live installation has not.** Use the fork-aware test procedure below only on a disposable Hetzner Cloud instance. The official BOA command shown without the preparatory steps is not a fork install.
 
 ```bash
 # Upstream BOA reference only, after host/domain checks and autoinit:
 boa in-lts public server.example.com client@example.com o1 nodns
 ```
+
+## Fork-based test-install candidate
+
+On an empty, snapshotted Hetzner Debian 13 amd64 VPS with verified Rescue access and correct DNS, connect directly as root:
+
+```bash
+git clone --branch hetzner-drupal11 --single-branch https://github.com/actools-pl/boa.git
+cd boa
+bash hetzner/preflight.sh server.example.com
+bash hetzner/bootstrap.sh --prepare
+screen
+bash /opt/boa-fork/source/BOA.sh.txt
+boa in-lts public server.example.com client@example.com o1 nodns
+```
+
+This is an **unverified disposable-server procedure**. Running `bootstrap.sh` alone only stages a pinned copy and does not install BOA. SMTP authentication on port 587, real Drupal 11 provisioning, snapshot/restore and reboot verification remain to be tested. See [the full runbook](INSTALL_FROM_FORK.md) for non-negotiable safety steps. Do not use example domains or email addresses literally.
 
 ## Acceptance checklist (not yet completed)
 
