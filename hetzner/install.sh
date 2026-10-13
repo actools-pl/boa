@@ -56,6 +56,20 @@ case "$mode" in
       || fail "existing BOA detected; fresh VM required"
     # This checks PUBLIC IPv4 == the hostname AND the wildcard A record.
     bash "$script_dir/preflight.sh" "$host" || fail "preflight failed; no BOA changes made"
+    # Leave a PRIVATE, nonsecret recovery record before Devuan conversion.
+    # Avoid dumping cloud-init configuration, which may contain credentials.
+    {
+      printf 'UTC: '; date -u '+%Y-%m-%dT%H:%M:%SZ'
+      printf 'Target FQDN: %s\n' "$host"
+      cat /etc/os-release
+      if command -v ip >/dev/null 2>&1; then
+        ip -br -4 address
+        ip -4 route
+      fi
+      command -v lsblk >/dev/null 2>&1 && lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINTS
+      printf 'Hostname before BOA: '; hostname
+    } > /root/.boa-hetzner-network-before.txt
+    chmod 0600 /root/.boa-hetzner-network-before.txt
     [[ -x "$(command -v hostname)" ]] || fail "hostname command missing"
     bash "$script_dir/bootstrap.sh" --prepare || fail "Git source pin staging failed"
     # Set a stable hostname so the Devuan conversion does not inherit the
@@ -68,6 +82,7 @@ case "$mode" in
       || fail "BOA or autoinit tools missing after bootstrap"
     cmp -s /opt/local/bin/boa /opt/boa-fork/source/aegir/tools/bin/boa \
       || fail "installed boa launcher differs from pinned fork"
+    command -v screen >/dev/null 2>&1 || fail "GNU screen not available after BOA tool bootstrap"
     echo "PREPARED: source commit $(cat /root/.boa-fork-source.sha)"
     cat <<EOF
 Next (on the same disposable VPS):
