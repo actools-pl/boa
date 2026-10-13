@@ -37,6 +37,10 @@ boa_fork_init
 [[ "$BOA_FORK_MODE" == YES && "$BOA_FORK_SHA" = "$sha" ]]
 # Fresh destination MUST return success, not just create the tree.
 boa_fork_stage_tree /opt/tmp/boa
+[[ "$(stat -c %a /opt/tmp/boa)" = "755" ]] || {
+  echo 'FAIL: BOA staged tree is not traversable for service accounts' >&2
+  exit 1
+}
 test -s /opt/tmp/boa/lib/functions/helper.sh.inc
 cmp -s /opt/tmp/boa/BOA.sh.txt /opt/boa-fork/source/BOA.sh.txt
 # Replacing an already staged tree must succeed and leave no stale backups.
