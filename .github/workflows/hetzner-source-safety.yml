@@ -23,3 +23,19 @@ jobs:
         run: |
           test -f BOA.sh.txt
           test -f hetzner/INSTALL_FROM_FORK.md
+  debian-trixie:
+    name: Debian 13 pinned-source staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: debian:trixie
+    steps:
+      - name: Install test-only tooling inside disposable Debian 13 container
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends bash git ca-certificates coreutils tar findutils
+      - uses: actions/checkout@v4
+      - name: Bash syntax and source mapping on Debian 13
+        run: bash hetzner/tests/fork-source-test.sh
+      - name: Fresh install and pin drift checks inside ephemeral container
+        run: bash hetzner/tests/pin-integration-test.sh
