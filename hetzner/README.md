@@ -4,6 +4,10 @@
 
 This branch starts from BOA's free `5.x-lts` source. Its purpose is to make a **minimal, reviewable** change set for one Hetzner Cloud KVM VPS, installing BOA and then Drupal 11. The original `5.x-lts` and `5.x-dev` branches must remain unchanged. Do not use this branch for a production installation until the acceptance tests below pass on a disposable server.
 
+## Detailed fork installation and required code changes
+
+Read **[INSTALL_FROM_FORK.md](INSTALL_FROM_FORK.md)** first. It is the current, comprehensive step-by-step Hetzner Cloud / Drupal 11 runbook and file-by-file modification plan. The installation from this fork is **not yet implemented or end-to-end tested**; the existing `preflight.sh` is only a read-only prerequisite check.
+
 ## Supported test target
 
 - A *fresh* Hetzner **Cloud KVM** VPS, x86-64, with **Debian 13 (Trixie)**. BOA's `autoinit` converts Trixie to **Devuan Excalibur**; it does **not** continue running Debian.
