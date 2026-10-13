@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
-bash -n "$repo/hetzner/fork-source.sh" "$repo/hetzner/bootstrap.sh" \
-  "$repo/hetzner/preflight.sh" "$repo/BOA.sh.txt" "$repo/BARRACUDA.sh.txt" \
-  "$repo/OCTOPUS.sh.txt" "$repo/aegir/tools/bin/boa" \
-  "$repo/aegir/tools/bin/barracuda" "$repo/aegir/tools/bin/octopus" \
-  "$repo/aegir/tools/system/clear.sh" \
-  "$repo/lib/settings/barracuda.sh.cnf" "$repo/lib/settings/octopus.sh.cnf"
+for f in hetzner/fork-source.sh hetzner/bootstrap.sh hetzner/preflight.sh \
+  BOA.sh.txt BARRACUDA.sh.txt OCTOPUS.sh.txt \
+  aegir/tools/bin/boa aegir/tools/bin/barracuda aegir/tools/bin/octopus \
+  aegir/tools/bin/autoupboa aegir/tools/system/clear.sh \
+  lib/settings/barracuda.sh.cnf lib/settings/octopus.sh.cnf; do
+  bash -n "$repo/$f"
+done
 # Pure URL resolver tests. Production init always overrides this test variable.
 # shellcheck disable=SC1091
 source "$repo/hetzner/fork-source.sh"
