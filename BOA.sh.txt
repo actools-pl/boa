@@ -4379,7 +4379,13 @@ _fix_eldir() {
     && [ ! -e "${_eldirP}" ]; then
     mkdir -p /var/xdrago/conf
     if [[ "${BOA_FORK_MODE:-NO}" = YES ]]; then
-      boa_fork_stage_file "${_urlHmr}/patches/${_eldirF}" "${_eldirP}" || exit 76
+      # This obsolete site_footer patch is not shipped in upstream LTS Git.
+      # Drupal 11 does not use it; never fetch code from an unpinned mirror.
+      if [[ -s "${BOA_FORK_ROOT}/aegir/patches/${_eldirF}" ]]; then
+        boa_fork_stage_file "${_urlHmr}/patches/${_eldirF}" "${_eldirP}" || exit 76
+      else
+        echo "NOTE: pinned BOA fork omits legacy ${_eldirF}; skipping on Drupal 11 test target"
+      fi
     else
       curl ${_crlGet} "${_urlHmr}/patches/${_eldirF}" -o ${_eldirP}
     fi
