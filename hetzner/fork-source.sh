@@ -101,5 +101,8 @@ boa_fork_stage_tree() {
     [[ -d "$_old" ]] && mv -- "$_old" "$_dst"
     rm -rf -- "$_tmp"; boa_fork_error "could not place pinned BOA tree"; return 1
   fi
-  [[ -d "$_old" ]] && rm -rf -- "$_old"
+  if [[ -d "$_old" ]]; then
+    rm -rf -- "$_old" || { boa_fork_error "cannot clean old staged tree"; return 1; }
+  fi
+  return 0
 }
