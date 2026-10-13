@@ -33,7 +33,7 @@ jobs:
       - name: Install test-only tooling inside disposable Debian 13 container
         run: |
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends bash git ca-certificates coreutils tar findutils
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends bash git ca-certificates coreutils tar findutils python3
       - uses: actions/checkout@v4
       - name: Bash syntax and source mapping on Debian 13
         run: bash hetzner/tests/fork-source-test.sh
