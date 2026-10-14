@@ -105,6 +105,25 @@ if id o1 >/dev/null 2>&1; then
   fi
 else fail "Octopus o1 system account missing"; fi
 
+# A root-owned /opt/local/bin created with inherited umask 077 (0700)
+# leaves /bin/sh -> /opt/local/bin/websh inaccessible to instance users.
+# Drush runs its mysql/provision children through PHP shell execution, so
+# this check is critical even when Hostmaster's PDO connection works.
+if id o1 >/dev/null 2>&1; then
+  if su -s /bin/bash - o1 -c '/bin/sh -c "/bin/true"' >/dev/null 2>&1; then
+    pass "o1 can execute the BOA /bin/sh wrapper"
+  else
+    fail "o1 cannot execute /bin/sh; inspect /opt/local and /opt/local/bin traversal permissions"
+  fi
+  if su -s /bin/bash - o1 -c \
+    'php -r '\''$out=[]; $status=-1; exec("/bin/true", $out, $status); exit($status === 0 ? 0 : 1);'\''' \
+    >/dev/null 2>&1; then
+    pass "o1 PHP CLI can launch a subprocess"
+  else
+    fail "o1 PHP CLI cannot launch a subprocess (Drush task execution is blocked)"
+  fi
+fi
+
 if [[ -f /data/disk/o1/log/setupmail.txt && ! -L /data/disk/o1/log/setupmail.txt ]]; then
   pass "welcome information exists locally; never copy its passwords to Git"
 else
