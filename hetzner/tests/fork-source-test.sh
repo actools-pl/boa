@@ -10,6 +10,10 @@ for f in hetzner/fork-source.sh hetzner/bootstrap.sh hetzner/preflight.sh \
   lib/settings/barracuda.sh.cnf lib/settings/octopus.sh.cnf; do
   bash -n "$repo/$f"
 done
+# The wrapper's root-private umask must not leak into BOA's mkdir -p stages:
+# it would turn /opt/local/bin into 0700 and prevent o1 executing /bin/sh.
+grep -Fq '( umask 022; bash /opt/boa-fork/source/BOA.sh.txt )' "$repo/hetzner/install.sh"
+grep -Fq 'o1 PHP CLI can launch a subprocess' "$repo/hetzner/verify-install.sh"
 bash "$repo/hetzner/tests/preflight-dns-test.sh"
 bash "$repo/hetzner/install.sh" help >/dev/null
 bash "$repo/hetzner/verify-install.sh" help >/dev/null
