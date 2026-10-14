@@ -2,7 +2,8 @@
 set -euo pipefail
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 for f in hetzner/fork-source.sh hetzner/bootstrap.sh hetzner/preflight.sh \
-  hetzner/tests/pin-integration-test.sh hetzner/tests/preflight-dns-test.sh hetzner/install.sh \
+  hetzner/tests/pin-integration-test.sh hetzner/tests/preflight-dns-test.sh \
+  hetzner/tests/verify-site-version-test.sh hetzner/install.sh \
   hetzner/verify-install.sh \
   BOA.sh.txt BARRACUDA.sh.txt OCTOPUS.sh.txt \
   aegir/tools/bin/boa aegir/tools/bin/barracuda aegir/tools/bin/octopus \
@@ -15,6 +16,7 @@ done
 grep -Fq '( umask 022; bash /opt/boa-fork/source/BOA.sh.txt )' "$repo/hetzner/install.sh"
 grep -Fq 'o1 PHP CLI can launch a subprocess' "$repo/hetzner/verify-install.sh"
 bash "$repo/hetzner/tests/preflight-dns-test.sh"
+bash "$repo/hetzner/tests/verify-site-version-test.sh"
 bash "$repo/hetzner/install.sh" help >/dev/null
 bash "$repo/hetzner/verify-install.sh" help >/dev/null
 # Pure URL resolver tests. Production init always overrides this test variable.
