@@ -20,7 +20,8 @@ the existing BOA LTS installation (Debian 13 -> Devuan Excalibur), using "nodns"
 to skip initial SMTP/DNS checks, while retaining real FQDN + wildcard DNS.
 On Excalibur BOA uses Percona 8.4 required by Drupal 11.
 
-This is a DISPOSABLE-VPS / SNAPSHOT-REQUIRED workflow, not tested on Hetzner.
+This is a DISPOSABLE-VPS / SNAPSHOT-REQUIRED workflow.
+A repaired Hetzner reference passed; a clean rerun from this corrected fork is pending.
 It does not configure SMTP AUTH or automatically create a Drupal site.
 EOF
 }

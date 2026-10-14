@@ -1,8 +1,8 @@
 # Installing BOA / Drupal 11 on Hetzner Cloud from actools-pl/boa
 
-**Version:** 2026-10-13 · **Repository:** https://github.com/actools-pl/boa · **Working branch:** `hetzner-drupal11` · **Base:** upstream free `5.x-lts`
+**Version:** 2026-10-15 · **Repository:** https://github.com/actools-pl/boa · **Working branch:** `hetzner-drupal11` · **Base:** upstream free `5.x-lts`
 
-> **STATUS: PINNED FORK SOURCE IMPLEMENTED; LIVE INSTALL NOT VERIFIED.** This branch now has a root-owned SHA pinning bootstrap, fork-aware BOA/Barracuda/Octopus source and update paths, and passing GitHub Actions shell/source-safety checks. No end-to-end Hetzner Debian-to-Devuan, Drupal 11, SMTP delivery or reboot test has been performed. **Disposable server testing only; not approved for production.**
+> **STATUS: WORKING REPAIRED REFERENCE; CLEAN RERUN PENDING.** The operator's Hetzner reference converted Debian 13 to Devuan, survived reboot, hosted Drupal 11 and passed same-server restore and system/Drupal mail delivery tests. It was migrated to a Composer platform on Drupal 11.4.10. The source guards and later fixes have CI coverage, but a fresh install from the corrected branch, upgrade/relay persistence and replacement-server restore remain unproven. See [the dated acceptance record](ACCEPTANCE_2026-10-15.md). Fresh-installer use remains limited to an empty disposable VM with tested recovery access.
 
 ## 1. Objective and minimal-change principle
 
@@ -72,7 +72,7 @@ bash /root/boa-hetzner-preflight.sh server.example.com smtp.example.net
 
 The preflight does not install BOA, configure SMTP, change firewall/networking, or convert Debian. **It requires Git to be available for the pinned fork preparation; if Git is absent, first take a provider Snapshot, then explicitly install only Git on the disposable Debian VPS. This is an exception to the untouched stock BOA image recommendation that needs a live test.** A `PASS` result is necessary but not sufficient. It cannot verify that the Hetzner kernel/network survives the Debian-to-Devuan transition.
 
-**Source selection is now implemented**, but a Hetzner runtime test is still required. Use `hetzner/bootstrap.sh --prepare` to pin the source before running the local BOA meta-installer. Downloading the official BOA installer directly from `files.boa.io` is a **different, upstream** installation and does not exercise our fork.
+**Source selection is implemented and the reference pin/installed launchers were verified.** A fresh runtime test of the corrected branch remains required. Use `hetzner/bootstrap.sh --prepare` to pin the source before running the local BOA meta-installer. Downloading the official BOA installer directly from `files.boa.io` is a **different, upstream** installation and does not exercise our fork.
 
 ## 4. Reference: how standard upstream BOA is installed (NOT a fork install)
 
@@ -119,9 +119,9 @@ If a run aborts during conversion, inspect `/root/.autoinit.log` and `/root/.aut
 
 ### P0 — a fork-aware, persistent BOA source identity (mandatory)
 
-**Implemented but not Hetzner-tested:** `hetzner/bootstrap.sh --prepare` checks out the source into `/opt/boa-fork/source` and records its exact 40-character commit SHA in `/root/.boa-fork-source.sha`, root-owned and mode 0600. BOA entrypoints verify the SHA, repository origin and checkout cleanliness before modifying the host. The pinned source remains fixed until a separately reviewed promotion procedure updates it.
+**Implemented; the reference pin/entrypoint comparisons passed:** `hetzner/bootstrap.sh --prepare` checks out the source into `/opt/boa-fork/source` and records its exact 40-character commit SHA in `/root/.boa-fork-source.sha`, root-owned and mode 0600. BOA entrypoints verify the SHA, repository origin and checkout cleanliness before modifying the host. The pinned source remains fixed until a separately reviewed promotion procedure updates it.
 
-The fork loader is now wired into these paths; each still requires a live test on Hetzner:
+The fork loader is wired into these paths; the clean rerun and upgrade tests must establish the entire chain, beyond the working reference's entrypoint comparisons:
 1. Initial `BOA.sh.txt` setup (including the Debian `autoinit` restart/resume sequence).
 2. Barracuda/Octopus installer and settings fetches.
 3. Source-tree staging in both Barracuda and Octopus phases.
@@ -169,6 +169,7 @@ Only if a specific failure is demonstrated, add a narrowly scoped and reversible
 - For the Debian 13 / Devuan Excalibur track, BOA already forces **Percona 8.4**. This solves the single-optional-token conflict: choose `nodns` rather than `percona-8.4` and then independently verify the installed database version.
 - Configure **Postfix SMTP AUTH on TCP/587** after BOA installation, with STARTTLS and appropriate CA validation. Use a supported external relay and keep credentials in local root-only files (e.g. `/etc/postfix/sasl_passwd`, 0600, plus protected map); never in public Git, shell command history, uploaded logs, or BOA welcome records.
 - Upstream `_SMTP_RELAY_HOST` alone configures a simple **unauthenticated** relay; it does **not** replace the SMTP AUTH/TLS settings required by a normal port-587 provider.
+- BOA's local-sendmail permission switch also clears Postfix's relayhost. Keep the authenticated system relay separate from Drupal's direct SMTP module configuration; see [SMTP_587.md](SMTP_587.md).
 - An *optional later patch* can add an idempotent, secret-free template/reapply hook so upgrades do not undo SMTP submission settings. Test an actual delivered email, not just an open TCP socket.
 - Do not depend on email for initial access: use `drush @hm uli` from root and verify `setupmail.txt` privately. A failed/incomplete Octopus install may have neither.
 
@@ -179,17 +180,31 @@ After BOA is installed and **Percona 8.4 is positively verified**, request a cur
 For a *new, disposable test instance* only, where replacing its default platform selection is acceptable:
 
 ~~~bash
-su -s /bin/bash o1 -c 'printf "DE4\n" > ~/static/control/platforms.info'
-su -s /bin/bash o1 -c 'touch ~/static/control/run-upgrade.pid'
+(
+  set -e
+  umask 077
+  boa_platform_request="$(mktemp)"
+  trap 'rm -f "$boa_platform_request"' EXIT
+  printf 'DE4\n' > "$boa_platform_request"
+  install -o o1.ftp -g o1 -m 0644 "$boa_platform_request" /data/disk/o1/static/control/platforms.info
+  install -o o1.ftp -g o1 -m 0644 /dev/null /data/disk/o1/static/control/run-upgrade.pid
+)
 ~~~
 
-`platforms.info` **replaces**, rather than extends, the selected platform list. If other platforms matter, preserve their symbols instead of writing `DE4` alone. After the platform builds and verifies, create a Drupal 11 site in Ægir and test login, a database write, cache/cron, TLS, backups and restoration.
+`platforms.info` **replaces**, rather than extends, the selected platform list. If other platforms matter, preserve their symbols instead of writing `DE4` alone. The root-only file installation above addresses the reference's control-directory ownership: `o1.ftp:o1`, mode `2755`. It preserves that directory's permissions. After the platform builds and verifies, create a Drupal 11 site in Ægir and test login, a database write, cache/cron, TLS, backups and restoration.
 
 **Important upstream qualification:** built-in Drupal 8+ platform builds are intended for demonstration/compatibility testing with best-effort security updates. For a **production** Drupal 11 website, build and maintain your **own Composer-managed platform under the tenant's `~/static`**, following BOA's “Adding your own platform” guidance, rather than relying on built-in testing platforms.
 
+The reference moved from the bundled 11.4.9 development platform to a custom
+11.4.10 Composer platform with SMTP 1.4.0 and Drush 13.8.0. The build's initial
+11.4.9 dependency audit found three core advisories; the fixed build's audit was
+clean before platform registration. See the Composer build/migration steps in
+[README.md](README.md) and check current supported releases for each new build.
+The site-version verifier does not replace `composer audit`.
+
 ## 6. Two-phase fork installation candidate (DISPOSABLE HETZNER VM ONLY)
 
-The pinned fork loader and BOA staging pass static GitHub Actions tests plus **root staging integration tests**, but a real Hetzner Debian/Devuan conversion has not been performed. Use **only** on an empty, snapshotted Debian 13 amd64 Hetzner Cloud VPS with verified SSH keys, Hetzner Console/Rescue and public IPv4/WILDCARD DNS matching the VM.
+The pinned fork loader and BOA staging pass static GitHub Actions tests plus **root staging integration tests**. A repaired reference completed the Hetzner Debian/Devuan conversion; a clean installation of the corrected fork is still pending. Use the fresh installer **only** on an empty, snapshotted Debian 13 amd64 Hetzner Cloud VPS with verified SSH keys, Hetzner Console/Rescue and public IPv4/WILDCARD DNS matching the VM.
 
 ~~~bash
 # Log in DIRECTLY as root. Do this only if Git is missing:
@@ -223,8 +238,16 @@ su -s /bin/bash o1 -c 'drush @hm uli'
 For a **throwaway Drupal 11 platform** on the test server, BOA's keyword `DE4` requests its Drupal 11.4 platform set:
 
 ~~~bash
-su -s /bin/bash o1 -c 'printf "DE4\n" > ~/static/control/platforms.info'
-su -s /bin/bash o1 -c 'touch ~/static/control/run-upgrade.pid'
+# As root; create only the requested control files, without changing the directory:
+(
+  set -e
+  umask 077
+  boa_platform_request="$(mktemp)"
+  trap 'rm -f "$boa_platform_request"' EXIT
+  printf 'DE4\n' > "$boa_platform_request"
+  install -o o1.ftp -g o1 -m 0644 "$boa_platform_request" /data/disk/o1/static/control/platforms.info
+  install -o o1.ftp -g o1 -m 0644 /dev/null /data/disk/o1/static/control/run-upgrade.pid
+)
 ~~~
 
 This replaces the account's default platform selection, so preserve other desired keywords if needed. After that platform is verified, create a **real Drupal 11 site** in Ægir and verify it using its actual Drush alias:
@@ -244,25 +267,35 @@ The completed code modifications are intended to:
 4. Refuse missing/unsafe fork files instead of silently falling back to the official BOA code.
 5. Preserve the original BOA free-LTS branch semantics and existing Drupal 11/Percona 8.4 implementation.
 
-**Still not demonstrated:** an operator-safe repin/rollback workflow, successful Devuan conversion on Hetzner, an actual Drupal 11 installation, SMTP delivery, and backup/restore validation. Never edit the pin file in place while BOA is running.
+**Still not demonstrated:** a repair-free clean install from the corrected branch, an operator-safe repin/rollback workflow, full runtime upgrade/source-refresh coverage, authenticated relay persistence through maintenance, and replacement-server restore. Never edit the pin file in place while BOA is running.
 
 ## 7. Acceptance tests / definition of done
 
 - [x] Pinned BOA code-source hooks and static GitHub Actions source-safety tests implemented.
-- [ ] `hetzner/preflight.sh` succeeds on an actual clean Hetzner **Debian 13 amd64** VM; snapshot and recovery access confirmed.
-- [ ] Vendor-control install (separate disposable VM) establishes what works with no fork patches.
-- [ ] Debian -> Devuan Excalibur conversion completes, with root SSH, IPv4, DNS and boot surviving its reboots.
-- [ ] Fork bootstrap uses the expected pinned `actools-pl/boa` commit during every phase, including post-conversion resumption.
-- [ ] Barracuda/Octopus receive fork-selected BOA code while upstream Ægir bundled dependencies remain unmodified.
-- [ ] Negative test: missing SHA/source or attempted fallback to the official BOA versioned path **fails closed**, no silent fork replacement.
-- [ ] Source remains pinned after a manual `barracuda up-lts` / `octopus up-lts` and after scheduled self-update logic.
-- [ ] Port 25 blocked; initial BOA installation completes with `nodns`; public DNS and ACME certs still work.
-- [ ] Percona 8.4, supported PHP, Nginx, Ægir panel and a Drupal 11 site all work.
-- [ ] Local welcome information/one-time admin link recovered without external email; no passwords or one-time links leaked.
-- [ ] Authenticated SMTP submission on 587 delivers a message and survives maintenance.
-- [ ] `boa info | grep -c Percona` reaches the documented fresh-install completion threshold before final reboot; all services survive reboot.
-- [ ] Site backup + restore to a disposable replacement box is tested before declaring production-readiness.
-- [ ] Lint (`bash -n`, ShellCheck where available), source-origin assertions and security review pass; only `hetzner-drupal11` is modified.
+- [x] Reference setup completed after SSH-key/DNS corrections, with snapshot and recovery access confirmed by the operator.
+- [x] Reference Debian -> Devuan Excalibur conversion completed; root SSH, IPv4, DNS and boot survived reboot.
+- [x] Reference source pin and installed boa/barracuda/octopus/autoinit comparisons passed.
+- [x] Reference reached three Percona completion lines; Percona 8.4.11-11, PHP 8.4.26, Nginx, panel and Drupal bootstrap worked.
+- [x] Private local initial access recovery, HTTPS enforcement, content, image derivatives and anonymous access checks passed.
+- [x] Reference cron ran with Drupal's page-triggered cron disabled and Aegir's hourly schedule configured.
+- [x] Full site backup and same-server restore preserved original content/files and removed a temporary edit.
+- [x] Reference reboot survival passed before SMTP setup and the final platform migration.
+- [x] Authenticated system SMTP on 587 delivered mail; the queue emptied. Drupal SMTP test mail and password reset also worked.
+- [x] Custom Composer platform build/audit and migration to Drupal 11.4.10 passed; post-migration full backup was green.
+
+The checked runtime items above apply to the repaired reference, not a clean run
+of every correction now on this branch. Detailed evidence and limits are in
+[ACCEPTANCE_2026-10-15.md](ACCEPTANCE_2026-10-15.md).
+
+- [ ] Corrected JSON site-version probe passes against the actual reference runtime; standalone post-mail-change site Verify is confirmed.
+- [ ] Corrected fork completes a clean Hetzner Debian 13 install without manual directory/DNS repairs.
+- [ ] Fork source identity is observed across every fresh-install/resumption and upgrade stage while bundled upstream dependencies retain their intended provenance.
+- [ ] Source remains pinned after manual BOA upgrades and scheduled source refresh; actual-runtime negative/fallback tests fail closed. Offline CI coverage already exists.
+- [ ] Authenticated SMTP submission survives BOA maintenance and reboot.
+- [ ] An operator-safe pin promotion/rollback procedure is demonstrated.
+- [ ] Custom platform code and full site backup restore onto a disposable replacement box.
+- [ ] Separate vendor-control install and wider boot/network/ACME/source fault-injection tests are completed.
+- [ ] Applicable lint, source assertions and security review pass for the final promotion candidate; `5.x-lts` and `5.x-dev` remain untouched.
 
 ## 8. Recommended implementation sequence
 
@@ -288,4 +321,4 @@ The completed code modifications are intended to:
 - Hetzner network configuration: https://docs.hetzner.com/networking/networks/server-configuration/
 - Hetzner Snapshots: https://docs.hetzner.com/cloud/servers/backups-snapshots/overview/
 
-**Final position:** A pinned fork-aware **test candidate** is committed and the static GitHub workflow passes. A disposable Hetzner installation is still required to demonstrate it actually works, survives conversion/reboots and updates, and reliably hosts Drupal 11. Production use is **not approved**.
+**Final position:** The repaired reference demonstrates a functioning BOA/Drupal stack, reboot survival, same-server restore and real email delivery. It does not establish that the corrected fresh installer needs no repairs, that upgrades preserve the source/relay, or that a replacement server can restore the site. Complete those remaining gates before claiming production readiness.

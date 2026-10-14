@@ -1,6 +1,6 @@
 # Hetzner Cloud BOA LTS / Drupal 11 installer
 
-**State: runnable test candidate, NOT verified on a Hetzner Cloud machine.** The BOA fork's source pinning, launcher/staging logic and automatic self-update guards have passed CI shell and offline staging tests. They still require a first real VM install, reboot and upgrade test. **Do not use an existing server or production site.**
+**State: a repaired Hetzner reference installation passed operational tests; a clean install from the corrected fork is still pending.** The reference converted Debian 13 to Devuan, survived reboot, hosted Drupal 11, completed same-server backup/restore, and delivered system and Drupal mail. It later migrated to a Composer platform on Drupal 11.4.10. This does not prove a repair-free install, upgrade/relay persistence or replacement-server recovery. See the dated [acceptance record](ACCEPTANCE_2026-10-15.md). Run the fresh installer only on a disposable empty VM.
 
 Repository: [actools-pl/boa](https://github.com/actools-pl/boa) · branch: `hetzner-drupal11` (based on free upstream `5.x-lts`).
 
@@ -59,6 +59,8 @@ bash /opt/boa-fork/source/hetzner/install.sh install \
 
 This runs the **fork's** pinned `boa in-lts public server.example.com client@example.com o1 nodns`. BOA may reboot by itself and resume from its recorded command. Check `/root/.autoinit.log` after Debian conversion and Barracuda/Octopus logs on failure; do not interrupt a running install. **Do not manually reboot** until all BOA phases finish.
 
+Supply your actual monitored client/recipient address in place of `client@example.com`. This recipient is separate from the mailbox that will authenticate to an SMTP provider. The reference install needed a later placeholder-address correction.
+
 ### If non-root BOA tasks cannot execute `/bin/sh`
 
 A Hetzner installer-wrapper bug was discovered on the first live installation: the wrapper used a private root `umask 077` and passed that into BOA's `mkdir -p /opt/local/bin`. It created both `/opt/local` and `/opt/local/bin` as root-owned `0700` directories. Although `/opt/local/bin/websh` itself was `0755`, the `o1` user could not traverse its parents; `/bin/sh` (a symlink to websh) returned permission denied, PHP `exec()` returned `-1`, and Ægir tasks remained queued despite working Percona credentials.
@@ -91,11 +93,18 @@ The Ægir control panel should be `https://o1.server.example.com`. **Do not publ
 
 ## Install an actual Drupal 11 site
 
-For an initial **throwaway compatibility test**, BOA's built-in `DE4` keyword provisions its Drupal 11.4 platform set. As root, ask the `o1` account to request that platform:
+For an initial **throwaway compatibility test**, BOA's built-in `DE4` keyword provisions its Drupal 11.4 platform set. The reference control directory was owned by `o1.ftp:o1` with mode `2755`, so writing these files as `o1` failed. Install only the requested files as root; do not widen the directory permissions:
 
 ~~~bash
-su -s /bin/bash o1 -c 'printf "DE4\n" > ~/static/control/platforms.info'
-su -s /bin/bash o1 -c 'touch ~/static/control/run-upgrade.pid'
+(
+  set -e
+  umask 077
+  boa_platform_request="$(mktemp)"
+  trap 'rm -f "$boa_platform_request"' EXIT
+  printf 'DE4\n' > "$boa_platform_request"
+  install -o o1.ftp -g o1 -m 0644 "$boa_platform_request" /data/disk/o1/static/control/platforms.info
+  install -o o1.ftp -g o1 -m 0644 /dev/null /data/disk/o1/static/control/run-upgrade.pid
+)
 ~~~
 
 The control file **replaces** the default platform selection; keep other desired keywords if this is not a throwaway instance. Monitor the Octopus upgrade/Verify queue in Ægir. Create a site in Ægir using the verified Drupal 11 platform, then verify its version with the **actual site alias** (list aliases using BOA's Drush tools):
@@ -109,9 +118,55 @@ bash /opt/boa-fork/source/hetzner/verify-install.sh \
 
 For **production Drupal 11**, do not depend on BOA's bundled Drupal 8+ demonstration platforms: build your own versioned, Composer-managed Drupal 11 project under `~/static/platforms/`, register it via Ægir **Platforms → Add platform**, and deploy sites on that. See [BOA's deploying-code guide](https://docs.boa.io/cheat-sheets/deploying-code).
 
+### Composer platform and module workflow
+
+Run Composer in the `o1.ftp` account shell, before registering the platform. The
+reference used Composer 2.10.3, PHP 8.4.26, SMTP 1.4.0 and Drush 13.8.0. Choose a
+currently supported Drupal release and audit its dependencies. As of the dated
+reference test, Drupal 11.4.9 failed the security audit and 11.4.10 fixed the
+three reported core advisories.
+
+~~~bash
+# From the root shell, enter the account's actual BOA limited shell:
+su - o1.ftp
+# Then run these individually; stop if a build/check fails:
+composer --version
+mkdir -p ~/static/platforms
+cd ~/static/platforms
+composer create-project drupal/recommended-project:11.4.10 site-d11-smtp-01 --no-interaction --no-dev
+cd site-d11-smtp-01
+composer require 'drupal/smtp:^1.4' 'drush/drush:^13' --no-interaction
+composer install --no-dev --optimize-autoloader --no-interaction
+composer validate --no-check-publish
+composer check-platform-reqs --no-dev
+composer audit --no-dev
+composer show --direct
+~~~
+
+Once the checks pass, register the codebase in Aegir with the full path
+`/data/disk/o1/static/platforms/site-d11-smtp-01/web`. Confirm the saved
+**Publish Path** before running Verify: `/platforms/site-d11-smtp-01/web` alone
+is the wrong absolute path. Leave the makefile field empty.
+
+Add all modules/themes the site needs before registration. After platform Verify
+passes, take a full site-files/classic-mysqldump backup, confirm no database updates
+are pending, then use Migrate Site to select the new platform under the same site
+domain. Check the version, content, uploaded files and login after migration.
+For production, rehearse the move on a clone first. Build a fresh platform for
+later code changes rather than running Composer against one serving sites.
+
+Aegir's site Backup does not include this shared platform code. Preserve the
+project manifest, lock and any custom code, or a protected copy of the completed
+build, as well as the site archive before attempting replacement-server recovery.
+
 ## Outbound email and maintenance
 
 Hetzner normally blocks outbound TCP/25 and TCP/465, not TCP/587. `nodns` permits BOA installation without emailing the initial password. To send actual system/Drupal messages, use an external **authenticated submission relay** with STARTTLS over 587. Do not place SMTP passwords, token URLs, or welcome-mail contents in Git or CI logs.
+
+Postfix relay configuration handles backend/system mail. BOA restricts hosted
+sites' local sendmail by default, so Drupal also needs a site SMTP module/provider
+configuration. Enabling BOA's local-sendmail control can clear Postfix's relayhost;
+it is not the way to connect the two paths. See [SMTP_587.md](SMTP_587.md).
 
 The source pin is deliberately not self-advancing. Do **not** run stock `wget https://files.boa.io/BOA.sh.txt | bash` over your pinned fork; do **not** assume an upstream BOA upgrade preserves the pin without verification. A safe reviewed repin/rollback procedure and actual upgrade acceptance tests remain necessary before production use.
 
@@ -119,10 +174,12 @@ The source pin is deliberately not self-advancing. Do **not** run stock `wget ht
 
 - [INSTALL_FROM_FORK.md](INSTALL_FROM_FORK.md) — architecture, source/update patches, risks, test gates and troubleshooting.
 - [preflight.sh](preflight.sh) — read-only host/DNS checks.
-- [install.sh](install.sh) — guarded two-phase installer (first Hetzner test pending).
+- [install.sh](install.sh) — guarded two-phase installer (clean rerun from the corrected fork pending).
 - [verify-install.sh](verify-install.sh) — read-only BOA and Drupal version checks.
 - [tests](tests/) — CI syntax, source mapping, first-install/replacement staging, pin drift refusal.
 - [SMTP submission guide](SMTP_587.md) — optional post-install delivery setup.
+- [Reference acceptance record](ACCEPTANCE_2026-10-15.md) — operator-reported passes, live repairs and remaining gates.
 - [Upstream BOA installation guide](https://docs.boa.io/self-hosting/install-boa).
 
-**Do not merge** `hetzner-drupal11` into either untouched upstream branch until a full Hetzner installation, reboot, SMTP and backup/restore retest passes.
+Keep `5.x-lts` and `5.x-dev` untouched. Complete the clean-install, upgrade/relay
+persistence and replacement-restore gates before promoting this test candidate.
