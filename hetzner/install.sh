@@ -77,7 +77,13 @@ case "$mode" in
     hostname -b "$host" || fail "could not set runtime hostname"
     printf '%s\n' "$host" > /etc/hostname
     # The installed BOA code is now taken from the pinned checkout.
-    bash /opt/boa-fork/source/BOA.sh.txt || fail "pinned BOA tool bootstrap failed"
+    # The root-owned fork checkout and recovery record use umask 077, but
+    # upstream BOA's meta-installer creates /opt/local and /opt/local/bin
+    # with mkdir -p. Inheriting 077 makes them 0700, blocking all non-root
+    # users from /bin/sh -> /opt/local/bin/websh, which breaks Drush/Ægir.
+    # Use the normal BOA install umask only for the upstream bootstrap stage.
+    ( umask 022; bash /opt/boa-fork/source/BOA.sh.txt ) \
+      || fail "pinned BOA tool bootstrap failed"
     [[ -s /opt/local/bin/boa && -s /opt/local/bin/autoinit ]] \
       || fail "BOA or autoinit tools missing after bootstrap"
     cmp -s /opt/local/bin/boa /opt/boa-fork/source/aegir/tools/bin/boa \
@@ -114,6 +120,9 @@ EOF
     echo "Pinned SHA: $BOA_FORK_SHA"
     echo "DO NOT MANUALLY REBOOT until all BOA phases complete."
     # Existing BOA launcher records the install and resumes after autoinit.
+    # BOA's installer also expects normal root umask for shared directories;
+    # secret material remains protected by BOA's own explicit file modes.
+    umask 022
     exec /opt/local/bin/boa in-lts public "$host" "$email" o1 nodns
     ;;
   *)
