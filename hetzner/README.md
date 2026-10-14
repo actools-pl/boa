@@ -59,6 +59,20 @@ bash /opt/boa-fork/source/hetzner/install.sh install \
 
 This runs the **fork's** pinned `boa in-lts public server.example.com client@example.com o1 nodns`. BOA may reboot by itself and resume from its recorded command. Check `/root/.autoinit.log` after Debian conversion and Barracuda/Octopus logs on failure; do not interrupt a running install. **Do not manually reboot** until all BOA phases finish.
 
+### If non-root BOA tasks cannot execute `/bin/sh`
+
+A Hetzner installer-wrapper bug was discovered on the first live installation: the wrapper used a private root `umask 077` and passed that into BOA's `mkdir -p /opt/local/bin`. It created both `/opt/local` and `/opt/local/bin` as root-owned `0700` directories. Although `/opt/local/bin/websh` itself was `0755`, the `o1` user could not traverse its parents; `/bin/sh` (a symlink to websh) returned permission denied, PHP `exec()` returned `-1`, and Ægir tasks remained queued despite working Percona credentials.
+
+The wrapper now runs the **BOA install child** with `umask 022` while retaining its root-private source checkout and pin. For a server prepared with an earlier commit, do not change the pinned source or swap `/bin/sh`; restore traversal on **only** these two directories as root:
+
+~~~bash
+chmod 0711 /opt/local /opt/local/bin
+su -s /bin/bash - o1 -c '/bin/sh -c "/bin/echo SHELL_OK"'
+su -s /bin/bash - o1 -c 'php -r '\''exec("/bin/echo PHP_OK", $o, $rc); echo "exit=$rc\\n";'\'''
+~~~
+
+The mode `0711` allows directory traversal but **not listing or modification** by non-root users; no recursive permissions or symlink changes. Once the shell works, test `drush8 @hm sqlq "SELECT 1"`, then let the existing task queue process its queued items. Never reset queued task statuses or rerun a site installation blindly.
+
 ### Phase C — complete setup and verify
 
 After all BOA passes report completion (fresh installs normally report **3** for `boa info | grep -c Percona`), reboot once as BOA directs, reconnect as root, then:
