@@ -145,24 +145,36 @@ fi
 
 # vdrush is a limited-shell wrapper command, not an executable in o1's
 # Bash shell. A locked BOA platform supports Drush 8's read-only status.
-# Use its positional field selector (not modern Drush's --field option).
+# core-status returns a format-list, so Drush 8 rejects --format=string.
+# Parse its supported JSON output with the already-required PHP CLI.
 # Never report raw failed-command output: it may contain private config.
 boa_verify_site_version() {
-  local alias="$1" version
+  local alias="$1" status_json version
   [[ "$alias" =~ ^@[A-Za-z0-9.-]+$ ]] || return 1
-  if ! version="$(su -s /bin/bash - o1 -c \
-    "drush8 $alias status drupal-version --format=string --no-show-passwords" 2>/dev/null)"; then
+  if ! status_json="$(su -s /bin/bash - o1 -c \
+    "drush8 $alias status --format=json --no-show-passwords" 2>/dev/null)"; then
+    return 1
+  fi
+  if ! version="$(printf '%s' "$status_json" | php -r '
+    $status = json_decode(stream_get_contents(STDIN), true);
+    if (json_last_error() !== JSON_ERROR_NONE
+        || !is_array($status)
+        || !isset($status["drupal-version"])
+        || !is_string($status["drupal-version"])) {
+      exit(1);
+    }
+    echo $status["drupal-version"];
+  ' 2>/dev/null)"; then
     return 1
   fi
   [[ "$version" =~ ^11\.[0-9]+\.[0-9]+([-+][A-Za-z0-9.-]+)?$ ]] || return 1
   printf '%s\n' "$version"
 }
-
 if [[ -n "$site_alias" ]]; then
   if result="$(boa_verify_site_version "$site_alias")"; then
     pass "site $site_alias reports Drupal $result"
   else
-    fail "site $site_alias Drupal 11 version probe failed; inspect: su -s /bin/bash - o1 -c 'drush8 $site_alias status drupal-version --format=string'"
+    fail "site $site_alias Drupal 11 version probe failed; inspect: su -s /bin/bash - o1 -c 'drush8 $site_alias status'"
   fi
 else
   warn "Drupal 11 site not checked; supply @site-alias after registering a platform and installing a site"

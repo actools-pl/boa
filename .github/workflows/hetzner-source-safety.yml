@@ -15,6 +15,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Ensure PHP CLI for verifier parser regression
+        run: |
+          if ! command -v php >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends php-cli
+          fi
       - name: Shell source mapping and entrypoint checks
         run: bash hetzner/tests/fork-source-test.sh
       - name: Root-only fork staging and drift tests on ephemeral CI runner
@@ -33,7 +39,7 @@ jobs:
       - name: Install test-only tooling inside disposable Debian 13 container
         run: |
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends bash git ca-certificates coreutils tar findutils python3
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends bash git ca-certificates coreutils tar findutils python3 php-cli
       - uses: actions/checkout@v4
       - name: Bash syntax and source mapping on Debian 13
         run: bash hetzner/tests/fork-source-test.sh
