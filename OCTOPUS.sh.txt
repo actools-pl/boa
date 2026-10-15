@@ -1,5 +1,16 @@
 #!/bin/bash
 
+# Opt-in, pinned BOA fork source; upstream installs are unchanged.
+if [ -e /root/.boa-fork-source.sha ] || [ -L /root/.boa-fork-source.sha ]; then
+  if [ ! -r /opt/boa-fork/source/hetzner/fork-source.sh ]; then
+    echo "BOA FORK REFUSED: pinned helper missing (no upstream fallback)" >&2
+    exit 76
+  fi
+  # shellcheck disable=SC1091
+  . /opt/boa-fork/source/hetzner/fork-source.sh
+  boa_fork_init || exit 76
+fi
+
 
 ###----------------------------------------###
 ###
@@ -75,7 +86,7 @@ export _SMALLCORE10_6_V=10.6.18
 export _SMALLCORE11_1_V=11.1.10
 export _SMALLCORE11_2_V=11.2.14
 export _SMALLCORE11_3_V=11.3.18
-export _SMALLCORE11_4_V=11.4.8
+export _SMALLCORE11_4_V=11.4.9
 export _SMALLCORE6_V=6.60.1
 export _SMALLCORE7_V=7.106.2
 export _SMALLCORE9_V=9.5.11
@@ -165,7 +176,7 @@ export _DRUPAL11_4_S="${_DRUPAL11_4}-stage"
 ### make time.
 ###
 export _BACKDROP_V_FALLBACK=1.35.1
-export _GRAV_V_FALLBACK=2.2.5
+export _GRAV_V_FALLBACK=2.2.6
 export _TXP_V_FALLBACK=4.9.1
 export _BACKDROP_V="${_BACKDROP_V_FALLBACK}"
 export _BACKDROP="backdrop-${_BACKDROP_V}"
@@ -341,9 +352,13 @@ if ! declare -F _satellite_if_instance_group > /dev/null 2>&1 \
     # the helper library sourced just above -- by the very tree this guard
     # distrusts -- and an older copy knows nothing of the no-cache query, so
     # the re-fetch would hit the same edge cache and land the same stale tree.
-    ( cd /opt/tmp/boa-refetch \
-      && curl ${_crlGet} "https://files.boa.io/dev/${_tRee}/boa.tar.gz?r=$(date +%s)" -o boa.tar.gz \
-      && tar -xzf boa.tar.gz ) > /dev/null 2>&1
+    if [[ "${BOA_FORK_MODE:-NO}" = YES ]]; then
+      boa_fork_stage_tree /opt/tmp/boa-refetch/boa || _clean_pid_exit _fork_tree_refetch
+    else
+      ( cd /opt/tmp/boa-refetch \
+        && curl ${_crlGet} "https://files.boa.io/dev/${_tRee}/boa.tar.gz?r=$(date +%s)" -o boa.tar.gz \
+        && tar -xzf boa.tar.gz ) > /dev/null 2>&1
+    fi
     if [ -e "/opt/tmp/boa-refetch/boa/aegir/helpers/apt.conf.noi.nrml" ] \
       && [ -e "/opt/tmp/boa-refetch/boa/aegir/helpers/apt.conf.noi.dist" ] \
       && [ -e "/opt/tmp/boa-refetch/boa/lib/functions/helper.sh.inc" ] \
@@ -406,9 +421,13 @@ if ! declare -F _satellite_if_web_group > /dev/null 2>&1 \
     rm -rf /opt/tmp/boa-refetch
     mkdir -p /opt/tmp/boa-refetch
     # shellcheck disable=SC2086
-    ( cd /opt/tmp/boa-refetch \
-      && curl ${_crlGet} "https://files.boa.io/dev/${_tRee}/boa.tar.gz?r=$(date +%s)" -o boa.tar.gz \
-      && tar -xzf boa.tar.gz ) > /dev/null 2>&1
+    if [[ "${BOA_FORK_MODE:-NO}" = YES ]]; then
+      boa_fork_stage_tree /opt/tmp/boa-refetch/boa || _clean_pid_exit _fork_tree_refetch
+    else
+      ( cd /opt/tmp/boa-refetch \
+        && curl ${_crlGet} "https://files.boa.io/dev/${_tRee}/boa.tar.gz?r=$(date +%s)" -o boa.tar.gz \
+        && tar -xzf boa.tar.gz ) > /dev/null 2>&1
+    fi
     if [ -e "/opt/tmp/boa-refetch/boa/aegir/helpers/apt.conf.noi.nrml" ] \
       && [ -e "/opt/tmp/boa-refetch/boa/aegir/helpers/apt.conf.noi.dist" ] \
       && grep -q "^_satellite_if_web_group() {" /opt/tmp/boa-refetch/boa/lib/functions/satellite.sh.inc 2> /dev/null \

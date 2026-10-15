@@ -1,5 +1,16 @@
 #!/bin/bash
 
+# Opt-in, pinned BOA fork source; upstream installs are unchanged.
+if [ -e /root/.boa-fork-source.sha ] || [ -L /root/.boa-fork-source.sha ]; then
+  if [ ! -r /opt/boa-fork/source/hetzner/fork-source.sh ]; then
+    echo "BOA FORK REFUSED: pinned helper missing (no upstream fallback)" >&2
+    exit 76
+  fi
+  # shellcheck disable=SC1091
+  . /opt/boa-fork/source/hetzner/fork-source.sh
+  boa_fork_init || exit 76
+fi
+
 export HOME=/root
 export SHELL=/bin/bash
 export PATH=/usr/local/bin:/usr/local/sbin:/opt/local/bin:/usr/bin:/usr/sbin:/bin:/sbin:/usr/libexec
@@ -1539,7 +1550,11 @@ _fetch_boa_file() {
   local _fSnt="${3}"
   local _fTmp="${2}.new"
   rm -f "${_fTmp}"
-  curl ${_crlGet} "${_fUrl}" -o "${_fTmp}"
+  if [[ "${BOA_FORK_MODE:-NO}" = YES ]]; then
+    boa_fork_stage_file "${_fUrl}" "${_fTmp}" || _clean_pid_exit _fork_source_refused
+  else
+    curl ${_crlGet} "${_fUrl}" -o "${_fTmp}"
+  fi
   if [ ! -s "${_fTmp}" ] || ! grep -q "${_fSnt}" "${_fTmp}" 2> /dev/null; then
     rm -f "${_fTmp}"
     echo

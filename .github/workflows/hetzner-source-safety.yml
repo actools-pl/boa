@@ -1,0 +1,47 @@
+name: Hetzner BOA fork source safety
+on:
+  push:
+    branches:
+      - hetzner-drupal11
+  pull_request:
+    branches:
+      - hetzner-drupal11
+permissions:
+  contents: read
+jobs:
+  source-safety:
+    name: Fork pin and shell syntax
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure PHP CLI for verifier parser regression
+        run: |
+          if ! command -v php >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends php-cli
+          fi
+      - name: Shell source mapping and entrypoint checks
+        run: bash hetzner/tests/fork-source-test.sh
+      - name: Root-only fork staging and drift tests on ephemeral CI runner
+        run: sudo -E bash hetzner/tests/pin-integration-test.sh
+      - name: Confirm LTS and default trees are unchanged by this test
+        run: |
+          test -f BOA.sh.txt
+          test -f hetzner/INSTALL_FROM_FORK.md
+  debian-trixie:
+    name: Debian 13 pinned-source staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: debian:trixie
+    steps:
+      - name: Install test-only tooling inside disposable Debian 13 container
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends bash git ca-certificates coreutils tar findutils python3 php-cli
+      - uses: actions/checkout@v4
+      - name: Bash syntax and source mapping on Debian 13
+        run: bash hetzner/tests/fork-source-test.sh
+      - name: Fresh install and pin drift checks inside ephemeral container
+        run: bash hetzner/tests/pin-integration-test.sh

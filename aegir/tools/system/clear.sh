@@ -1,5 +1,16 @@
 #!/bin/bash
 
+# Opt-in, pinned BOA fork source; upstream installs are unchanged.
+if [ -e /root/.boa-fork-source.sha ] || [ -L /root/.boa-fork-source.sha ]; then
+  if [ ! -r /opt/boa-fork/source/hetzner/fork-source.sh ]; then
+    echo "BOA FORK REFUSED: pinned helper missing (no upstream fallback)" >&2
+    exit 76
+  fi
+  # shellcheck disable=SC1091
+  . /opt/boa-fork/source/hetzner/fork-source.sh
+  boa_fork_init || exit 76
+fi
+
 export HOME=/root
 export SHELL=/bin/bash
 export PATH=/usr/local/bin:/usr/local/sbin:/opt/local/bin:/usr/bin:/usr/sbin:/bin:/sbin:/usr/libexec
@@ -488,7 +499,16 @@ if ! _install_held && _self_lock_gate; then
   # invocation stays exactly what it was (BASH_SOURCE, hence the per-caller apt
   # cadence stamp, is read inside).
   _boaShTmp=/var/opt/.boa.sh.txt.$$
-  if wget -q -O "${_boaShTmp}" https://${_USE_MIR}/versions/${_tRee}/boa/BOA.sh.txt \
+  if [[ "${BOA_FORK_MODE:-NO}" = YES ]]; then
+    if [[ "${_tRee}" != lts ]] || ! cp -p "${BOA_FORK_ROOT}/BOA.sh.txt" "${_boaShTmp}" \
+      || ! grep -q "^export _tRee=" "${_boaShTmp}"; then
+      echo "BOA FORK REFUSED: pinned meta-installer unavailable" >&2
+      rm -f "${_boaShTmp}"
+      _self_lock_release
+      exit 76
+    fi
+    bash < "${_boaShTmp}" || { rm -f "${_boaShTmp}"; _self_lock_release; exit 76; }
+  elif wget -q -O "${_boaShTmp}" https://${_USE_MIR}/versions/${_tRee}/boa/BOA.sh.txt \
     && grep -q "^export _tRee=" "${_boaShTmp}"; then
     bash < "${_boaShTmp}"
   else
