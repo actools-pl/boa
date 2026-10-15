@@ -20,6 +20,7 @@ available until the clean rerun and replacement restore succeed.
 | --- | --- |
 | OS conversion | Debian 13 converted to Devuan Excalibur; no `/lib/systemd/systemd`; root SSH recovered after reboot. |
 | BOA source | Pin validation passed; installed boa, barracuda, octopus and autoinit matched the pinned source. |
+| Reviewed standalone verifier | The copy from commit `506f8007370a67f32f6446222cf8e8b8e5984b56` passed SHA256 verification and ran on the reference server with zero failures, zero warnings and exit code 0. Its real Drush 8 JSON probe reported Drupal 11.4.10 while the BOA source pin remained unchanged. |
 | Completion | `boa info` reported three Percona lines. |
 | Database | Percona 8.4.11-11; Drupal reported a connected MySQL database and successful bootstrap. |
 | PHP and Drush | PHP CLI 8.4.26; BOA system Drush 8.5.15. |
@@ -57,9 +58,11 @@ available until the clean rerun and replacement restore succeed.
 6. The original verifier incorrectly used the limited-shell `vdrush` wrapper
    from `o1` Bash. A subsequent string-format probe was also rejected by the
    installed Drush. The current verifier requests full Drush 8 JSON status,
-   parses `drupal-version` with PHP and checks command success. The real JSON
-   probe on this reference server is still awaiting an operator run; CI alone
-   does not prove that runtime output contract.
+   parses `drupal-version` with PHP and checks command success. The operator
+   subsequently ran the reviewed standalone verifier against the reference:
+   the real JSON probe reported 11.4.10 and the full verifier exited 0 with
+   zero failures and warnings. This runtime contract now has both CI and
+   actual-server evidence.
 7. The new platform initially saved an incomplete `/platforms/.../web` path.
    Correcting the saved Publish Path to the full static-tree path resolved
    Verify. Confirm the saved value before diagnosing permissions or rebuilding.
@@ -79,8 +82,8 @@ facts; it is not a dependency security audit.
 
 ## Remaining acceptance gates
 
-- [ ] Run the corrected standalone verifier against the reference site without
-  changing its BOA source pin, and confirm the real JSON version probe passes.
+- [x] Corrected standalone verifier passed against the reference site without
+  changing its BOA source pin; the real JSON version probe reported 11.4.10.
 - [ ] Confirm standalone site Verify after the final mail/account changes.
 - [ ] Install from a reviewed corrected fork SHA on a separate clean Debian 13
   Hetzner VM with tested rescue access, without manual directory/DNS repairs.

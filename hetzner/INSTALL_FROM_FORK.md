@@ -287,7 +287,8 @@ The checked runtime items above apply to the repaired reference, not a clean run
 of every correction now on this branch. Detailed evidence and limits are in
 [ACCEPTANCE_2026-10-15.md](ACCEPTANCE_2026-10-15.md).
 
-- [ ] Corrected JSON site-version probe passes against the actual reference runtime; standalone post-mail-change site Verify is confirmed.
+- [x] Corrected standalone verifier passed on the reference runtime: SHA256 checked, Drupal 11.4.10 reported, zero failures/warnings and exit 0; BOA pin unchanged.
+- [ ] Standalone Aegir site Verify after the final mail/account changes is separately confirmed.
 - [ ] Corrected fork completes a clean Hetzner Debian 13 install without manual directory/DNS repairs.
 - [ ] Fork source identity is observed across every fresh-install/resumption and upgrade stage while bundled upstream dependencies retain their intended provenance.
 - [ ] Source remains pinned after manual BOA upgrades and scheduled source refresh; actual-runtime negative/fallback tests fail closed. Offline CI coverage already exists.
