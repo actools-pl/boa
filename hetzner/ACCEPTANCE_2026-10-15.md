@@ -11,8 +11,14 @@ one-time login/reset links are deliberately omitted.
 The reference BOA installation remains pinned to
 `e652eec18df0d230677c50b4641f513f22cb61ee`. Later corrections on
 `hetzner-drupal11` have CI coverage, but have not yet been exercised by a
-fresh installation from the corrected branch. Keep this reference server
-available until the clean rerun and replacement restore succeed.
+fresh installation from the corrected branch.
+
+The initial plan retained this reference while testing a separate VM. On
+15 October the operator chose a reinstall on the same VPS at night because no
+spare server was available. Preserve the reference in a completed recovery
+snapshot and verified off-server site/code/configuration copies before a manual
+Debian rebuild; those recovery copies are not yet confirmed. Follow
+[SAME_SERVER_REINSTALL.md](SAME_SERVER_REINSTALL.md).
 
 ## Results on the reference server
 
@@ -85,8 +91,9 @@ facts; it is not a dependency security audit.
 - [x] Corrected standalone verifier passed against the reference site without
   changing its BOA source pin; the real JSON version probe reported 11.4.10.
 - [ ] Confirm standalone site Verify after the final mail/account changes.
-- [ ] Install from a reviewed corrected fork SHA on a separate clean Debian 13
-  Hetzner VM with tested rescue access, without manual directory/DNS repairs.
+- [ ] Install from a reviewed corrected fork SHA on clean Debian 13, using the
+  same VPS after the agreed backup/snapshot gates and manual rebuild, with
+  tested rescue access and no manual directory/DNS repairs.
 - [ ] Prove BOA source pin retention through manual upgrades and scheduled
   source refresh on that disposable VM; retain negative-test evidence.
 - [ ] Prove authenticated Postfix relay configuration survives BOA maintenance

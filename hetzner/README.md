@@ -4,6 +4,15 @@
 
 Repository: [actools-pl/boa](https://github.com/actools-pl/boa) · branch: `hetzner-drupal11` (based on free upstream `5.x-lts`).
 
+## Same-server clean rerun
+
+The operator will reuse the reference VPS at night because no spare box is
+available. This means a recovery snapshot and verified off-server copies must
+preserve the working reference before a manual Debian 13 rebuild. See the
+[same-server reinstall plan](SAME_SERVER_REINSTALL.md). Run the fresh installer
+only after the VPS has a clean Debian image; it is not an in-place upgrade of
+the working BOA installation.
+
 ## Target and prerequisites
 
 1. A disposable, freshly provisioned **Hetzner Cloud KVM x86-64 Debian 13 (Trixie)** VPS (not Ubuntu, not ARM, not a dedicated bare-metal host); 8 GiB RAM and 4 CPUs are preferred for the first trial.
