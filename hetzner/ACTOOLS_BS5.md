@@ -27,7 +27,7 @@ The corrected package, including the recorded browser result, is named:
 
 ~~~text
 actools_bs5-standalone-fixed-2026-10-16.zip
-SHA256 395b1993eb630867bb813ce58b2d375df5550d2d310c846eadb50d69c5518d50
+SHA256 8de83625edc2ecf054e47204e7d7082fcea5c3c1159fdc11f41741b2fe4aae0b
 ~~~
 
 This checksum identifies that exact artifact, not future builds under a similar
@@ -178,19 +178,20 @@ Full available width respects the surrounding content container. For sections
 that need the full viewport, set the theme's Content container to No Container
 and use contained sections for narrower content.
 
-## 5. Compact author correction
+## 5. User-heading corrections
 
 Core renders a node's author picture using the compact user view mode. The
 supplied wrapper always added the user's profile heading, producing a large
 duplicate admin heading above the submission line. This corrected wrapper reads
-the actual render-array mode, keeps picture/content, and omits profile headings
-and action links in compact mode:
+the actual render-array mode and keeps picture/content. Compact views omit action
+links. The wrapper leaves the profile heading to the normal page-title block,
+avoiding a second copy on account pages:
 
 ~~~twig
 {% set user_view_mode = elements['#view_mode']|default(view_mode|default('full')) %}
 {% set is_compact = user_view_mode == 'compact' %}
 {% include 'actools_bs5:user' with {
-  user_label: is_compact ? '' : user.getDisplayName(),
+  user_label: '',
   user_actions: is_compact ? [] : user_actions|default([]),
   view_mode: user_view_mode,
 } %}
@@ -200,13 +201,20 @@ It belongs at templates/user/user.html.twig inside the theme. For an existing
 test platform, take a root-private backup of that file before a targeted repair.
 Clear Drupal caches, then confirm the extra heading is absent while the
 submission line and layout remain. This passed on the reference node page.
-Normal account/profile pages and actual avatar images still need acceptance.
+The next profile screenshot showed the account title and Edit profile/Log out
+controls still rendering, but revealed a second copy of the title. The final
+wrapper above removes that duplicate; it still needs deployment and browser
+confirmation. Actual avatar images and account form/link behavior remain untested.
+
+The operator also reported that switching Body font to System sans-serif worked.
+Restoring Figtree and testing the other token controls were not confirmed.
 
 ## Remaining checks and fork integration
 
-Only layout discovery and the 50/50 rendering/responsive/reload case have been
-confirmed. Test the other five layouts, editing/reordering, keyboard use,
-menus/forms/account pages, token/font settings, actual author images, print and
+Layout discovery, the 50/50 rendering/responsive/reload case and the System
+sans-serif change have been confirmed. Test the other five layouts,
+editing/reordering, keyboard use, menus/forms/account behavior, other token/font
+settings, actual author images, print and
 the supplied Kernel/Functional suites in a suitable disposable test environment.
 The new compact/full regression was added to the package but has not run here.
 
@@ -221,3 +229,4 @@ References:
 - [Drupal Layout Builder defaults](https://www.drupal.org/docs/8/core/modules/layout-builder/creating-layout-defaults)
 - [Drupal 11.1 Body-field change](https://www.drupal.org/node/3489270)
 - [Custom-theme release metadata](https://www.drupal.org/docs/develop/theming-drupal/creating-sub-themes#s-avoid-no-available-releases-found)
+
