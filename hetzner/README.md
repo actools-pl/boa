@@ -168,6 +168,14 @@ Aegir's site Backup does not include this shared platform code. Preserve the
 project manifest, lock and any custom code, or a protected copy of the completed
 build, as well as the site archive before attempting replacement-server recovery.
 
+### Optional Actools BS5 theme
+
+The standalone Actools BS5 theme was smoke-tested on a separate Composer
+platform in the working reference installation. See the [optional theme guide](ACTOOLS_BS5.md)
+for limited-shell-safe commands, root-SFTP handling, Drupal 11 Body-field setup,
+observed Layout Builder results and remaining checks. This is an optional
+site/platform addition and does not change the BOA installer or source pin.
+
 ## Outbound email and maintenance
 
 Hetzner normally blocks outbound TCP/25 and TCP/465, not TCP/587. `nodns` permits BOA installation without emailing the initial password. To send actual system/Drupal messages, use an external **authenticated submission relay** with STARTTLS over 587. Do not place SMTP passwords, token URLs, or welcome-mail contents in Git or CI logs.
